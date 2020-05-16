@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Let's play ping-pong</title>
+</head>
+<body>
+<section id="game">
+    <div id="game-start">
+        <button id="connect-btn">play</button>
+
+        <input id="as-bot" type="checkbox">
+        <label for="as-bot">as bot</label>
+    </div>
+    <div id="game-info">
+        <div>Player1: <span id="player-1">waiting..</span></div>
+        <div>Player2: <span id="player-2">waiting..</span></div>
+        <div>Connection status: <span id="connect-status">try connect button</span></div>
+    </div>
+    <div id="game-block">
+        <canvas id="game-field"></canvas>
+    </div>
+</section>
+
+</body>
+<script type="application/javascript">
+    const msgPlayerInfo = 0
+    const msgEndGame = 1
+    const msgWithUUID = 2
+    const msgWithIDAndIndex = 3
+    const msgWithOpponentID = 4
+    const msgWithPlayerStatus = 5
+
+    const width = 400
+    const height = 300
+
+    const waitingMessage = 'waiting..'
+
+    const conn_status = document.getElementById('connect-status')
+    const players = [
+        {info: document.getElementById('player-1'), pos: { x: 50, y: height/2}, radius: 20},
+        {info: document.getElementById('player-2'), pos: { x: width-50, y: height/2}, radius: 20},
+    ];
+
+    let player = {
+        index: null,
+        uuid: null,
+    }
+    let opponent = {
+        index: null,
+    }
+
+    const game_block = document.getElementById('game-block')
+    game_block.hidden = true
+
+    let conn = null
+    let asBot = false
+    document.getElementById('connect-btn').addEventListener('click', event => {
+        asBot = document.getElementById('as-bot').checked
+
+        if (window['WebSocket']) {
+            conn = new WebSocket('ws://' + document.location.host + '/ws')
+
+            conn.onmessage = event => {
+                const msg = JSON.parse(event.data)
+
+                const data = msg.data
+                switch (msg.type) {
+                    case msgWithIDAndIndex:
+                        player.index = data.index
+                        opponent.index = (data.index + 1) % 2
+
+                        player.uuid = data.uuid
+                        players[player.index].info.innerText = `You [${player.uuid}]`
+                        break
+                    case msgWithOpponentID:
+                        players[opponent.index].info.innerText = `Opponent [${data}]`
+                        game_init()
+                        break
+                    case msgEndGame:
+                        conn.close(1000, 'game over')
+                        break
+                    case msgWithPlayerStatus:
+                        players[opponent.index].pos.x = data.position.x
+                        players[opponent.index].pos.y = data.position.y
+                }
+            }
+
+            conn.onclose = (event) => {
+                const reason = (event.reason === '') ? '' : `: ${event.reason}`
+                conn_status.innerText = event.type + reason
+                game_block.hidden = true
+                game_end = true
+            }
+            conn.onopen = () => {
+                players.forEach((p) => {
+                    p.info.style.backgroundColor = 'white'
+                    p.info.innerText = waitingMessage
+                })
+                conn_status.innerText = 'OK'
+                conn.send(JSON.stringify({
+                    type: msgWithUUID,
+                    data: player.uuid,
+                }))
+            }
+        }
+    });
+
+    const keys = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+    }
+    keyDownHandler = (event) => {
+        if (game_end) return
+        switch (event.code) {
+            case 'KeyW':
+            case 'ArrowUp':
+                keys.up = true
+                break
+            case 'KeyA':
+            case 'ArrowLeft':
+                keys.left = true
+                break
+            case 'KeyS':
+            case 'ArrowDown':
+                keys.down = true
+                break
+            case 'KeyD':
+            case 'ArrowRight':
+                keys.right = true
+                break
+        }
+    }
+    keyUpHandler = (event) => {
+        switch (event.code) {
+            case 'KeyW':
+            case 'ArrowUp':
+                keys.up = false
+                break
+            case 'KeyA':
+            case 'ArrowLeft':
+                keys.left = false
+                break
+            case 'KeyS':
+            case 'ArrowDown':
+                keys.down = false
+                break
+            case 'KeyD':
+            case 'ArrowRight':
+                keys.right = false
+                break
+        }
+    }
+    window.onkeydown = keyDownHandler
+    window.onkeyup = keyUpHandler
+
+    const game_field = document.getElementById('game-field')
+    const ctx = document.getElementById('game-field').getContext('2d')
+
+    game_field.setAttribute('width', width.toString())
+    game_field.setAttribute('height', height.toString())
+
+    game_init = () => {
+        game_end = false
+        game_block.hidden = false
+        requestAnimationFrame(game_run)
+    }
+
+    let game_end = true
+    let prev_timestamp = 0
+    game_run = (timestamp) => {
+        if (game_end) {
+            return
+        }
+        let dt = (timestamp - prev_timestamp) / 1000
+        prev_timestamp = timestamp
+        if (asBot) {
+            bot_update(dt)
+        }
+        game_update(dt)
+        game_draw(dt)
+        game_send(dt)
+        requestAnimationFrame(game_run)
+    }
+
+    game_send = (dt) => {
+        if (conn == null) return
+        conn.send(JSON.stringify({
+            type: msgWithPlayerStatus,
+            data: {
+                position: {
+                    x: players[player.index].pos.x,
+                    y: players[player.index].pos.y,
+                }
+            }
+        }))
+    }
+
+    let speed = 200
+    game_update = (dt) => {
+        let p = players[player.index]
+        if (keys.up || keys.down) {
+            players[player.index].pos.y += dt * ((keys.down ? speed : 0) + (keys.up ? -speed : 0))
+            if (p.pos.y <= p.radius) {
+                players[player.index].pos.y = p.radius
+            }
+            if (p.pos.y >= height-p.radius) {
+                players[player.index].pos.y = height-p.radius
+            }
+        }
+        if (keys.left || keys.right) {
+            players[player.index].pos.x += dt * ((keys.right ? speed : 0) + (keys.left ? -speed : 0))
+            if (p.pos.x <= p.radius) {
+                players[player.index].pos.x = p.radius
+            }
+            if (p.pos.x >= width-p.radius) {
+                players[player.index].pos.x = width-p.radius
+            }
+        }
+    }
+
+    game_draw = (dt) => {
+        ctx.clearRect(0, 0, width, height)
+        ctx.fillStyle = 'lightgray'
+        ctx.fillRect(0, 0, width, height)
+
+        players.forEach((p, i) => {
+            ctx.beginPath()
+            ctx.arc(p.pos.x, p.pos.y, p.radius, 0, 2 * Math.PI)
+            ctx.fillStyle = (i === player.index) ? 'lightgreen' : 'red'
+            ctx.fill()
+        })
+    }
+
+    const waitLimit = 1
+    let time = 0
+    bot_update = (dt) => {
+        time += dt
+        if (time >= waitLimit) {
+            time = 0
+            if (keys.up) {
+                keys.up = false
+                keys.right = true
+            } else if (keys.right) {
+                keys.right = false
+                keys.down = true
+            } else if (keys.down) {
+                keys.down = false
+                keys.left = true
+            } else if (keys.left) {
+                keys.left = false
+                keys.up = true
+            } else {
+                keys.up = true
+            }
+        }
+    }
+
+</script>
+</html>
