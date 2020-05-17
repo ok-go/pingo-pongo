@@ -52,6 +52,14 @@ func (gs GamePool) EnterTheGame(player *Player) error {
 		return err
 	}
 
+	player.Init(ind)
+	if err := player.Send(MessageConfig); err != nil {
+		return err
+	}
+	if err := player.Send(NewPlayerInfoMessage(player)); err != nil {
+		return err
+	}
+
 	log.Printf("[%v]: player[%v] enter the game", game.ID, player.ID)
-	return player.Send(NewUUIDAndIndexMessage(player.ID, ind))
+	return nil
 }

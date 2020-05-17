@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-const htmlTemplate = "game.html"
+const htmlTemplate = "templates/game.html"
 
 var wsUpgrader = websocket.Upgrader{}
 var gamePool = NewGamePool()

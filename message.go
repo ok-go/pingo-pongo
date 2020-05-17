@@ -1,15 +1,13 @@
 package pingo_pongo
 
-import "github.com/google/uuid"
-
-type MessageType int
+type MessageType string
 
 const (
-	MessageTypePlayersInfo MessageType = iota
-	MessageTypeEndGame
-	MessageTypeUUID
-	MessageTypeUUIDAndIndex
-	MessageTypeOpponentUUID
+	MessageTypeConfig MessageType = "msg-config"
+	MessageTypeEndGame MessageType = "msg-end-game"
+	MessageTypeUUID MessageType = "msg-uuid"
+	MessageTypePlayerInfo MessageType = "msg-player-info"
+	MessageTypeGameStart MessageType = "msg-game-start"
 )
 
 type Message struct {
@@ -17,23 +15,15 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
-func NewUUIDAndIndexMessage(id uuid.UUID, index int) *Message {
+func NewPlayerInfoMessage(player *Player) *Message {
 	return &Message{
-		Type: MessageTypeUUIDAndIndex,
-		Data: struct {
-			Index int       `json:"index"`
-			UUID  uuid.UUID `json:"uuid"`
-		}{index, id},
-	}
-}
-
-func NewOpponentMessage(id uuid.UUID) *Message {
-	return &Message{
-		Type: MessageTypeOpponentUUID,
-		Data: id,
+		Type: MessageTypePlayerInfo,
+		Data: player,
 	}
 }
 
 var (
-	MessageEndGame = &Message{Type: MessageTypeEndGame}
+	MessageStartGame = &Message{Type: MessageTypeGameStart}
+	MessageEndGame   = &Message{Type: MessageTypeEndGame}
+	MessageConfig    = &Message{Type: MessageTypeConfig, Data: cfg}
 )

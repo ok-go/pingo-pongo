@@ -163,6 +163,7 @@ func (g *Game) Run() {
 }
 
 func (g *Game) process(ctx context.Context, cancel context.CancelFunc) {
+	g.broadcast(MessageStartGame)
 	log.Printf("[%v]: game start\n", g.ID)
 
 	onReceive := func(p *Player, o *Player) {
@@ -218,7 +219,7 @@ func (g *Game) init(ctx context.Context, cancel context.CancelFunc) error {
 
 	sendOpponent := func(p *Player, op *Player) {
 		defer wg.Done()
-		if err := p.Send(NewOpponentMessage(op.ID)); err != nil {
+		if err := p.Send(NewPlayerInfoMessage(op)); err != nil {
 			log.Println(g.errorWrap(err))
 			cancel()
 		}

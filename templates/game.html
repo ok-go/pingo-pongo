@@ -9,7 +9,7 @@
     <div id="game-start">
         <button id="connect-btn">play</button>
 
-        <input id="as-bot" type="checkbox">
+        <input id="as-bot" type="checkbox" checked>
         <label for="as-bot">as bot</label>
     </div>
     <div id="game-info">
@@ -24,31 +24,25 @@
 
 </body>
 <script type="application/javascript">
-    const msgPlayerInfo = 0
-    const msgEndGame = 1
-    const msgWithUUID = 2
-    const msgWithIDAndIndex = 3
-    const msgWithOpponentID = 4
-    const msgWithPlayerStatus = 5
-
-    const width = 400
-    const height = 300
+    const msgConfig = "msg-config"
+    const msgEndGame = "msg-end-game"
+    const msgWithUUID = "msg-uuid"
+    const msgPlayerInfo = "msg-player-info"
+    const msgStartGame = "msg-game-start"
 
     const waitingMessage = 'waiting..'
 
-    const conn_status = document.getElementById('connect-status')
-    const players = [
-        {info: document.getElementById('player-1'), pos: { x: 50, y: height/2}, radius: 20},
-        {info: document.getElementById('player-2'), pos: { x: width-50, y: height/2}, radius: 20},
-    ];
+    let width = undefined
+    let height = undefined
 
-    let player = {
-        index: null,
-        uuid: null,
-    }
-    let opponent = {
-        index: null,
-    }
+    const conn_status = document.getElementById('connect-status')
+
+    const players = [
+        {info: document.getElementById('player-1')},
+        {info: document.getElementById('player-2')}
+    ];
+    let player = null
+    let opponent = null
 
     const game_block = document.getElementById('game-block')
     game_block.hidden = true
@@ -66,23 +60,33 @@
 
                 const data = msg.data
                 switch (msg.type) {
-                    case msgWithIDAndIndex:
-                        player.index = data.index
-                        opponent.index = (data.index + 1) % 2
-
-                        player.uuid = data.uuid
-                        players[player.index].info.innerText = `You [${player.uuid}]`
+                    case msgConfig:
+                        width = data.width
+                        height = data.height
+                        game_field.setAttribute('width', data.width.toString())
+                        game_field.setAttribute('height', data.height.toString())
                         break
-                    case msgWithOpponentID:
-                        players[opponent.index].info.innerText = `Opponent [${data}]`
+                    case msgPlayerInfo:
+                        players[data.index].index = data.index
+                        players[data.index].uuid = data.uuid
+                        players[data.index].radius = data.radius
+                        players[data.index].pos = data.pos
+
+                        if (player === null) {
+                            player = players[data.index]
+                            player.info.innerText = `You [${player.uuid}]`
+                        } else if (opponent == null) {
+                            opponent = players[data.index]
+                            opponent.info.innerText = `Opponent [${player.uuid}]`
+                        }
+
+                        break
+                    case msgStartGame:
                         game_init()
                         break
                     case msgEndGame:
                         conn.close(1000, 'game over')
                         break
-                    case msgWithPlayerStatus:
-                        players[opponent.index].pos.x = data.position.x
-                        players[opponent.index].pos.y = data.position.y
                 }
             }
 
@@ -100,7 +104,7 @@
                 conn_status.innerText = 'OK'
                 conn.send(JSON.stringify({
                     type: msgWithUUID,
-                    data: player.uuid,
+                    data: player === null ? null : player.uuid,
                 }))
             }
         }
@@ -159,9 +163,6 @@
     const game_field = document.getElementById('game-field')
     const ctx = document.getElementById('game-field').getContext('2d')
 
-    game_field.setAttribute('width', width.toString())
-    game_field.setAttribute('height', height.toString())
-
     game_init = () => {
         game_end = false
         game_block.hidden = false
@@ -188,35 +189,34 @@
     game_send = (dt) => {
         if (conn == null) return
         conn.send(JSON.stringify({
-            type: msgWithPlayerStatus,
+            type: msgPlayerInfo,
             data: {
-                position: {
-                    x: players[player.index].pos.x,
-                    y: players[player.index].pos.y,
-                }
-            }
+                uuid: player.uuid,
+                radius: player.radius,
+                pos: player.pos,
+                index: player.index,
+            },
         }))
     }
 
     let speed = 200
     game_update = (dt) => {
-        let p = players[player.index]
         if (keys.up || keys.down) {
-            players[player.index].pos.y += dt * ((keys.down ? speed : 0) + (keys.up ? -speed : 0))
-            if (p.pos.y <= p.radius) {
-                players[player.index].pos.y = p.radius
+            player.pos.y += dt * ((keys.down ? speed : 0) + (keys.up ? -speed : 0))
+            if (player.pos.y <= player.radius) {
+                player.pos.y = player.radius
             }
-            if (p.pos.y >= height-p.radius) {
-                players[player.index].pos.y = height-p.radius
+            if (player.pos.y >= height-player.radius) {
+                player.pos.y = height-player.radius
             }
         }
         if (keys.left || keys.right) {
-            players[player.index].pos.x += dt * ((keys.right ? speed : 0) + (keys.left ? -speed : 0))
-            if (p.pos.x <= p.radius) {
-                players[player.index].pos.x = p.radius
+            player.pos.x += dt * ((keys.right ? speed : 0) + (keys.left ? -speed : 0))
+            if (player.pos.x <= player.radius) {
+                player.pos.x = player.radius
             }
-            if (p.pos.x >= width-p.radius) {
-                players[player.index].pos.x = width-p.radius
+            if (player.pos.x >= width-player.radius) {
+                player.pos.x = width-player.radius
             }
         }
     }
