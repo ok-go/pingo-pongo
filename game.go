@@ -181,10 +181,60 @@ func (g *Game) process(ctx context.Context, cancel context.CancelFunc) {
 				return
 			}
 
-			if err := o.Send(&msg); err != nil {
-				log.Println(g.errorWrap(err))
-				cancel()
-				return
+			if msg.Type == MessageTypeClientAction {
+				var ca ClientAction
+				data, ok := msg.Data.(map[string]interface{})
+				if !ok {
+					log.Printf("error parsing data: %#v\n", msg)
+					cancel()
+					return
+				}
+
+				ca.Down = data["down"].(bool)
+				ca.Up = data["up"].(bool)
+				ca.Left = data["left"].(bool)
+				ca.Right = data["right"].(bool)
+				ca.DT = data["dt"].(float64)
+
+				dx := int(ca.DT * 200)
+				dy := int(ca.DT * 200)
+
+				if ca.Left {
+					if p.Position.X > p.Radius {
+						p.Position.X -= dx
+					} else {
+						p.Position.X = p.Radius
+					}
+				}
+				if ca.Up {
+					if p.Position.Y > p.Radius {
+						p.Position.Y -= dy
+					} else {
+						p.Position.Y = p.Radius
+					}
+				}
+				if ca.Right {
+					if p.Position.X < cfg.Width - p.Radius {
+						p.Position.X += dx
+					} else {
+						p.Position.X = cfg.Width - p.Radius
+					}
+				}
+				if ca.Down {
+					if p.Position.Y < cfg.Height - p.Radius {
+						p.Position.Y += dy
+					} else {
+						p.Position.Y = cfg.Height - p.Radius
+					}
+				}
+
+				g.broadcast(NewPlayerInfoMessage(p))
+			} else {
+				if err := o.Send(NewPlayerInfoMessage(p)); err != nil {
+					log.Println(g.errorWrap(err))
+					cancel()
+					return
+				}
 			}
 		}
 	}

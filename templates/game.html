@@ -29,6 +29,7 @@
     const msgWithUUID = "msg-uuid"
     const msgPlayerInfo = "msg-player-info"
     const msgStartGame = "msg-game-start"
+    const msgClientAction = "msg-client-action"
 
     const waitingMessage = 'waiting..'
 
@@ -163,18 +164,20 @@
     const game_field = document.getElementById('game-field')
     const ctx = document.getElementById('game-field').getContext('2d')
 
+    let game_end = true
+    let prev_timestamp = null
     game_init = () => {
         game_end = false
         game_block.hidden = false
         requestAnimationFrame(game_run)
     }
 
-    let game_end = true
-    let prev_timestamp = 0
     game_run = (timestamp) => {
         if (game_end) {
             return
         }
+        if (prev_timestamp === null) prev_timestamp = timestamp
+
         let dt = (timestamp - prev_timestamp) / 1000
         prev_timestamp = timestamp
         if (asBot) {
@@ -189,36 +192,36 @@
     game_send = (dt) => {
         if (conn == null) return
         conn.send(JSON.stringify({
-            type: msgPlayerInfo,
+            type: msgClientAction,
             data: {
-                uuid: player.uuid,
-                radius: player.radius,
-                pos: player.pos,
-                index: player.index,
+                left: keys.left,
+                right: keys.right,
+                up: keys.up,
+                down: keys.down,
+                dt: dt,
             },
         }))
     }
 
-    let speed = 200
     game_update = (dt) => {
-        if (keys.up || keys.down) {
-            player.pos.y += dt * ((keys.down ? speed : 0) + (keys.up ? -speed : 0))
-            if (player.pos.y <= player.radius) {
-                player.pos.y = player.radius
-            }
-            if (player.pos.y >= height-player.radius) {
-                player.pos.y = height-player.radius
-            }
-        }
-        if (keys.left || keys.right) {
-            player.pos.x += dt * ((keys.right ? speed : 0) + (keys.left ? -speed : 0))
-            if (player.pos.x <= player.radius) {
-                player.pos.x = player.radius
-            }
-            if (player.pos.x >= width-player.radius) {
-                player.pos.x = width-player.radius
-            }
-        }
+        // if (keys.up || keys.down) {
+        //     player.pos.y += dt * ((keys.down ? speed : 0) + (keys.up ? -speed : 0))
+        //     if (player.pos.y <= player.radius) {
+        //         player.pos.y = player.radius
+        //     }
+        //     if (player.pos.y >= height-player.radius) {
+        //         player.pos.y = height-player.radius
+        //     }
+        // }
+        // if (keys.left || keys.right) {
+        //     player.pos.x += dt * ((keys.right ? speed : 0) + (keys.left ? -speed : 0))
+        //     if (player.pos.x <= player.radius) {
+        //         player.pos.x = player.radius
+        //     }
+        //     if (player.pos.x >= width-player.radius) {
+        //         player.pos.x = width-player.radius
+        //     }
+        // }
     }
 
     game_draw = (dt) => {

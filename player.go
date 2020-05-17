@@ -9,6 +9,12 @@ type Point struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 }
+
+func (p *Point) Add(o *Point) {
+	p.X += o.X
+	p.Y += o.Y
+}
+
 type Player struct {
 	conn *serverWS
 
